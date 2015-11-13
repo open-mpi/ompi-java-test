@@ -1,0 +1,766 @@
+
+I have described all problems, which I have recognized, in
+file PROBLEMS.TXT. Additionally PROBLEMS.TXT contains a few
+email discussions as well.
+
+The subdirectories contain Java files ported from C files from the
+"ompi-ibm-10.0" regression test package. The formatting of the code
+is mainly the same as in the original files.
+
+A Java file needs additional work, if it is stored in subdirectory
+"todo" (e.g., if the Java interface for a C function wasn't available
+or didn't match, so that I couldn't finish my work (cannot be ported
+at the moment) or I didn't even start my work (todo)).
+
+All test programs of a subdirectory can be compiled and run via
+the shell script "make_<subdirectory name>". This script will run
+the programs first with two processes and then with four processes
+on the local machine. It is possible to add options to "mpiexec"
+for the second run via the command line, e.g.
+
+./make_pt2pt -np 6 -host host1,host2,host3
+
+would first run all programs with two processes on the local machine
+and then with six processes on the specified three host machines.
+
+
+----------------------------
+----------------------------
+----------------------------
+
+
+Some things to remember
+=======================
+
+The Java API throws exceptions, if you specify
+
+MPI.COMM_WORLD.setErrhandler(MPI.ERRORS_RETURN);
+
+If you add this statement to your program, it will show the line
+where it breaks, instead of just crashing in case of an error.
+
+------------------
+
+"Datatype.Vector" needs a matrix in a contiguous memory area
+(September 2013). Unfortunately Java stores a 2-dimensional array
+as array of arrays (one 1-dimensional array for each row and
+another 1-dimensional array for the object IDs of the rows),
+i.e., each 1-dimensional array is stored in a contiguous memory
+area, but the whole matrix isn't stored in a contiguous memory
+area. Therefore it is necessary to simulates a multi-dimensional
+array in an 1-dimensional array and to compute all indices
+manually at the moment.
+
+------------------
+
+Java doesn't support addresses so that you must use an array with
+just one element instead of a simple variable, if the variable is
+used as a buffer in send/receive/bcast/... operations.
+
+------------------
+
+All non-blocking methods must use direct buffers and only
+blocking methods can use arrays or direct buffers.
+
+------------------
+
+The Java API for Open MPI doesn't provide parameters for the
+size of arrays. It uses "length" to determine the number of
+entries of an array, so that you always must use buffers with
+the correct size or you must copy the relevant contents of a
+larger buffer.
+
+status = Request.waitAnyStatus(req);
+status = Request.waitAnyStatus(Arrays.copyOf(req, numTasks));
+
+------------------
+
+The Java API doesn't support "MPI_STATUS_IGNORE" or
+"MPI_STATUSES_IGNORE" in the same way as C. Sometimes
+you must use different methods and sometimes the methods
+have even different names, if a MPI name collides with a
+Java name, e.g., wait().
+
+with "status":
+
+C:    MPI_Request msgid;
+      MPI_Status status;
+      MPI_Wait(&msgid, &status);
+      MPI_Recv(data, 5, MPI_BYTE, 0, 1, MPI_COMM_WORLD, &status);
+
+Java: Request msgid;
+      Status status;
+      status = msgid.waitStatus();
+      msgid.free();
+      status = MPI.COMM_WORLD.recv(data, 5, MPI.BYTE, 0, 1);
+
+with "MPI_STATUS_IGNORE"
+
+C:    MPI_Request request;
+      MPI_Wait(&request, MPI_STATUS_IGNORE);
+      MPI_Recv(NULL, 0, MPI_BYTE, 1-myid, 343, MPI_COMM_WORLD,
+               MPI_STATUS_IGNORE);
+
+Java: Request request;
+      request.waitFor();
+      request.free();
+      MPI.COMM_WORLD.recv(null, 0, MPI.BYTE, 1-myid, 343);
+
+------------------
+
+MPI objects will not automatically garbage collected, so that
+you must explicitly free every new object, i.e., you can have
+many calls of "request.free()" in one program, if you read for
+example different values in one program.
+
+...
+Request request;
+...
+request = MPI.COMM_WORLD.iReduce(fcIn, fcOut, 1,
+                                     MPI.FLOAT_COMPLEX, MPI.SUM, 0);
+request.waitFor();
+request.free();
+...
+request = MPI.COMM_WORLD.iReduce(dcIn, dcOut, 1,
+                                 MPI.DOUBLE_COMPLEX, MPI.SUM, 0);
+request.waitFor();
+request.free();
+...
+
+
+You must free objects of the following classes:
+
+  Comm, Intracomm, Intercomm, CartComm, GraphComm
+  Datatype
+  Group
+  Info
+  Op
+  Request, Prequest
+  Win
+
+------------------
+
+The methods of the Java API have only one return value, so that
+sometimes a parameter isn't available, e.g., "flag".
+
+C:    int flag = 0;
+      MPI_Request msgid;
+      MPI_Status status;
+      MPI_Irecv(&inmsg, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,
+                MPI_COMM_WORLD, &msgid);
+      while (flag == 0) {
+        MPI_Test(&msgid, &flag, &status);
+      }
+
+Java: Request msgid;
+      Status status = null;
+      msgid = MPI.COMM_WORLD.iRecv(inmsg, 1, MPI.INT,
+                                   MPI.ANY_SOURCE, MPI.ANY_TAG);
+      while(status == null) {
+        status = msgid.testStatus();
+      }
+
+------------------
+
+The methods of the Java API have only one return value, so that
+you get some values in a different way.
+
+C:    int index;
+      MPI_Request req[2000];
+      MPI_Status status;
+      MPI_Waitany(tasks, req, &index, &status);
+
+Java: int index;
+      Request req[] = new Request[2000];
+      Status status;
+      status = Request.waitAnyStatus(Arrays.copyOf(req, tasks));
+      index = status.getIndex();
+
+
+C:    int tasks, outcount, index[2000];
+      MPI_Request req[2000];
+      MPI_Status statuses[2000];
+      MPI_Waitsome(tasks, req, &outcount, index, statuses);
+
+Java: int tasks, outcount, index[];
+      Request req = new Request[2000];
+      Status statuses[];
+      statuses = Request.waitSomeStatus(Arrays.copyOf(req, tasks));
+      outcount = statuses.length;
+      index = new int[outcount];
+      for (int i = 0; i < outcount; ++i) {
+        index[i] = statuses[i].getIndex();
+      }
+
+You know which requests completed in "waitSomeStatus()" or
+"testSomeStatus()", if you use method "isNull()", which returns
+"true", if a request completed, e.g.,
+req[statuses[i].getIndex()].isNull()
+
+------------------
+
+The methods of the Java API have only one return value, so that
+you must sometimes call some methods instead of just one.
+
+C:    long lb, extent;
+      MPI_Type_get_extent (MPI_DOUBLE, &lb, &extent);
+
+Java: int lb, extent;
+      lb = MPI.DOUBLE.getLb();
+      extent = MPI.DOUBLE.getExtent();
+
+The results are different, because in Java an "offset" in an
+array or an "extent" of a datatype is the number of basic type
+units and not the number of bytes as in C!
+
+Exception: createHVector(), createHIndexed(), and createStruct()
+use a byte displacement.
+
+mpiexec -np 1 size_extent 
+MPI_DOUBLE:
+  lower bound: 0
+  extent:      8                       (8 bytes)
+
+mpiexec -np 1 java SizeExtent
+MPI.DOUBLE:
+  lower bound: 0
+  extent:      1                       (1 double)
+
+------------------
+
+The Java API supports MPI_IN_PLACE. Most functions have the
+same interface in root and non-root processes. The exceptions
+are "scatterv()" and "gatherv()".
+
+You must call these functions in the root process:
+
+     void gatherv(Object recvbuf, int[] recvcount, int[] displs,
+                  Datatype recvtype, int root)
+
+     void scatterv(Object sendbuf, int[] sendcount, int[] displs,
+                   Datatype sendtype, int root)
+
+And you must call these functions in non-root processes:
+
+     void gatherv(Object sendbuf, int sendcount, Datatype sendtype,
+                  int root)
+
+     void scatterv(Object recvbuf, int recvcount, Datatype recvtype,
+                   int root)
+
+The reason for the different implementation is, that it is weird
+to pass "dummy parameters" in Java. Dummy parameters make only
+sense in C, because you cannot overload functions in C.
+
+------------------
+
+Sometimes it is not allowed use "null" for an array of length zero
+(would result in a segmentation fault).
+
+MPI_Testall(0, req, &flag, statuses);
+would became
+status = Request.testAllStatus(new Request[0]);
+
+------------------
+
+The Java API supports direct buffers, e.g.,
+
+ByteBuffer s_buf = MPI.newByteBuffer(MYBUFSIZE),
+           r_buf = MPI.newByteBuffer(MYBUFSIZE);
+
+MPI.COMM_WORLD.send(s_buf, size, MPI.BYTE, 1, 1);
+MPI.COMM_WORLD.recv(r_buf, size, MPI.BYTE, 1, 1);
+
+Direct buffers are available for: BYTE, CHAR, SHORT, INT, LONG,
+FLOAT, and DOUBLE. There is no direct buffer for booleans.
+
+You can create direct buffers with static methods of MPI class:
+new[Type]Buffer
+You can access elemenets of the buffer with the methods "put()"
+and "get()", and you can get the number of elements in the buffer
+with the method "capacity()".
+
+Direct buffers aren't a replacement for arrays, because they have
+higher allocation and deallocation costs than arrays. In some
+cases arrays will be a better choice. You can easily convert a
+buffer into an array and vice versa, e.g.:
+
+If the buffer is non-direct you can wrap an array:
+
+     // Convert an int array into IntBuffer
+     int[] array = new int[...];
+     IntBuffer buf = IntBuffer.wrap(array);
+
+     // Convert an int buffer into int array
+     int[] array = buf.array();
+
+If the buffer is direct you must do a memory copy:
+
+     int[] array = new int[...];
+     IntBuffer buf = MPI.newIntBuffer(...);
+
+     // Copy an int array to an IntBuffer
+     buf.position(0);
+     buf.put(array);
+
+     // Copy an int buffer to an int array
+     IntBuffer buf = MPI.newIntBuffer(...);
+     buf.position(0);
+     buf.get(array);
+
+------------------
+
+Class "Struct" emulates C structs. The definition of a structure
+needs two subclasses of "Struct" and "Struct.Data". Class "Struct"
+defines the data type and class "Data" allows access to the data
+stored in a buffer. A data object acts as a reference to a buffer
+region.
+
+It is necessary to use byte arrays or direct byte buffers, if you
+use structures. Byte arrays are inefficient, because the data must
+be serialized. On the other hand they can be easily collected by
+the garbage collector. Direct byte buffers are very efficient, but
+the garbage collector cannot easily collect them. Therefore, in
+some cases it could be convenient to use byte arrays instead of
+direct byte buffers. That is the reason for supporting both buffer
+types.
+
+Calling "getType()" of a struct object returns the Datatype, so
+that it is not necessary to call "createStruct()". You can use
+this datatype for example in "createContiguous()". A structure
+datatype is also already committed.
+
+
+    Datatype newtype1, newtype2, shortint;
+...
+    TShortInt tShortInt = new TShortInt();
+    shortint = tShortInt.getType();
+    newtype1 = Datatype.createContiguous(2, shortint);
+
+    TStruct2 tStruct2 = new TStruct2(newtype1, shortint);
+    newtype2 = tStruct2.getType();
+...
+
+
+private static class TStruct2 extends Struct
+{
+  private final Datatype type1, shortint;
+  private final int fi, ft1, fsi;
+
+  // aob3[0] = 2;            // blocklength
+  // aod3[0] = 0;            // displacement
+  // aot3[0] = MPI.INT;      // datatype
+  // aob3[1] = 1;
+  // aod3[1] = 16;
+  // aot3[1] = newtype1;
+  // aob3[2] = 2;
+  // aod3[2] = 64;
+  // aot3[2] = shortint;
+
+  private TStruct2(Datatype type1, Datatype shortint)
+    throws MPIException
+  {
+    this.type1    = type1;
+    this.shortint = shortint;
+    fi  = addInt(2);
+    ft1 = setOffset(16).addData(type1);
+    fsi = setOffset(64).addData(shortint, 2);
+  }
+
+  @Override protected Data newData() { return new Data(); }
+
+  private class Data extends Struct.Data
+  {
+    //These methods are not needed but show how to access to data.
+    public ByteBuffer getData1()  { return getBuffer(type1, ft1);    }
+    public ByteBuffer getDataSI() { return getBuffer(shortint, fsi); }
+
+    public int   getIntField(int i) { return getInt(fi, i); }
+    public short getShortField()    { return getShort(fsi); }
+
+    public void putIntField(int i, int v) { putInt(fi, i, v); }
+    public void putShortField(short v)    { putShort(fsi, v); }
+  } // Data
+} // TStruct2
+
+------------------
+
+The following datatypes are available, which you can use with
+MINLOC and MAXLOC.
+
+Java Type       C Type
+-----------------------------
+MPI.INT2        MPI_2INT
+MPI.SHORT_INT   MPI_SHORT_INT
+MPI.LONG_INT    MPI_LONG_INT
+MPI.FLOAT_INT   MPI_FLOAT_INT
+MPI.DOUBLE_INT  DOUBLE_INT
+
+MPI.INT2 was already in the mpiJava API. The other types are
+structures (although they use the C data type). The current
+implementation will only work, if the C types have these sizes:
+
+short  16 bits
+int    32 bits
+long   64 bits
+
+The data type MPI.INT is MPI_INT32_T, and MPI.LONG is MPI_INT64_T,
+so they are ok.
+
+------------------
+
+Sometimes you use "&array[i]" to send data starting at an offset
+in your buffer. In that case you can "slice()" the buffer to start
+at an offset. Making a "slice()" on a buffer is only necessary,
+when the offset is not zero.
+
+import static mpi.MPI.slice;
+...
+int numbers[] = new int[SIZE];
+...
+MPI.COMM_WORLD.send(slice(numbers, offset), count, MPI.INT, 1, 0);
+
+
+
+byte[]     imessage = new byte[MSZ]; /* pack/unpack need byte buffer */
+ByteBuffer omessage = MPI.newByteBuffer(MSZ),
+           xmessage = MPI.newByteBuffer(MSZ);
+
+MPI.COMM_WORLD.pack(slice(omessage, MSZ/2), 2, newtype0, imessage, 0);
+MPI.COMM_WORLD.unpack(imessage, 0, slice(xmessage, MSZ/2), 2, newtype0);
+
+------------------
+
+The parameters "size" and "dispUnit" in the constructor of mpi.Win()
+must be specified as number of buffer elements and not as number of
+bytes! The buffer must be direct, because MPI needs a fixed memory
+address. If you use a non-direct buffer, the exception
+"IllegalArgumentException" will be thrown.
+
+
+----------------------------
+----------------------------
+----------------------------
+
+
+Status of the porting process
+=============================
+
+subdirectory collective:
+------------------------
+
+It is not allowed to use "Op.java" for "op.c", because that would
+overwrite the original mpiJava class with the same name.
+Therefore I use OpTest.java.
+
+Allgather.java                  ok
+AllgatherInPlace.java           ok
+Allgatherv.java                 ok
+AllgathervInPlace.java          ok
+Allreduce.java                  ok
+AllreduceInPlace.java           ok
+Alltoall.java                   ok
+Alltoallv.java                  ok
+Alltoallw.java                  cannot be ported, because MPI_Alltoallw()
+                                  cannot be ported to Java
+Barrier.java                    ok
+Bcast.java                      ok
+BcastStruct.java                cannot be ported at the moment
+Exscan.java                     ok
+ExscanInPlace.java              ok
+Gather.java                     ok
+GatherInPlace.java              ok
+Gatherv.java                    ok
+GathervInPlace.java             ok
+Iallgather.java                 ok
+IallgatherInPlace.java          ok
+Iallgatherv.java                ok
+IallgathervInPlace.java         ok
+Iallreduce.java                 ok
+IallreduceInPlace.java          ok
+Ialltoall.java                  ok
+Ialltoallv.java                 ok
+Ibarrier.java                   ok
+Ibcast.java                     ok
+IbcastStruct.java               cannot be ported at the moment
+Iexscan.java                    ok (breaks with internal MPI error)
+IexscanInPlace.java             ok (breaks with internal MPI error)
+Igather.java                    ok
+IgatherInPlace.java             ok
+Igatherv.java                   ok
+IgathervInPlace.java            ok
+Ireduce.java                    ok
+IreduceBig.java                 ok
+IreduceComplexC.java            ok
+IreduceInPlace.java             ok
+IreduceLoc.java                 ok
+IreduceScatter.java             ok
+IreduceScatterBlock.java        ok
+IreduceScatterBlockInPlace.java ok
+IreduceScatterInPlace.java      ok
+Iscan.java                      ok
+IscanInPlace.java               ok
+Iscatter.java                   ok
+IscatterInPlace.java            ok
+Iscatterv.java                  ok
+IscattervInPlace.java           ok
+IstructGatherv.java             cannot be ported at the moment
+OpTest.java                     ok
+Reduce.java                     ok
+ReduceBig.java                  ok
+ReduceComplexC.java             ok
+ReduceInPlace.java              ok
+ReduceLoc.java                  ok
+ReduceScatter.java              ok
+ReduceScatterBlock.java         ok
+ReduceScatterBlockInPlace.java  ok
+ReduceScatterInPlace.java       ok
+Scan.java                       ok
+ScanInPlace.java                ok
+Scatter.java                    ok
+ScatterInPlace.java             ok
+Scatterv.java                   ok
+ScattervInPlace.java            ok
+StructGatherv.java              cannot be ported at the moment
+
+
+
+
+subdirectory collective_intercomm:
+----------------------------------
+
+AllgatherInter.java             ok
+AllreduceInter.java             ok
+AlltoallInter.java              ok
+AlltoallvInter.java             ok
+AlltoallwInter.java             cannot be ported, because MPI_Alltoallw()
+                                  cannot be ported to Java
+BarrierInter.java               ok
+BcastInter.java                 ok
+GatherInter.java                ok
+ReduceInter.java                ok
+ReduceScatterInter.java         ok
+ReduceScatterInter2.java        ok
+ScatterInter.java               ok
+ScattervInter.java              ok
+
+
+
+
+subdirectory communicator:
+--------------------------
+
+It is not allowed to use "Intercomm.java" for "intercomm.c", because
+that would overwrite the original mpiJava class with the same name.
+Therefore I use InterComm.java.
+
+Attr.java             ok
+Commdup.java          ok
+Commfree.java         ok
+Compare.java          ok
+InterComm.java        ok
+Mpisplit.java         ok
+SelfAtexit.java       cannot be ported at the moment
+
+
+
+
+subdirectory datatype:
+----------------------
+
+Bakstr.java           ok
+Bottom.java           cannot be ported at the moment
+Getel.java            ok
+Lbub.java             cannot be ported at the moment
+Lbub2.java            cannot be ported at the moment
+Loop.java             ok
+Paktest.java          ok
+Pptransp.java         ok
+Strangest1.java       cannot be ported at the moment
+Structsr.java         ok
+Structsr2.java        ok
+Transp.java           ok
+Transp2.java          ok
+Transp3.java          ok
+Transpa.java          cannot be ported at the moment
+Zero1.java            error: ArrayIndexOutOfBoundsException
+Zero2.java            error: SIGFPE
+Zero3.java            cannot be ported at the moment
+Zero5.java            cannot be ported at the moment
+Zero6.java            cannot be ported at the moment
+
+
+
+
+subdirectory dynamic:
+---------------------
+
+ClientServer.java          ok
+CommJoin.java              cannot be ported, because MPI_Comm_join()
+                             cannot be ported to Java
+LoopChild.java             ok
+LoopSpawn.java             ok
+NiceMsgs.java              ok
+NoDisconnect.java          ok
+Spawn.java                 ok
+SpawnMultiple.java         ok
+
+
+
+
+subdirectory environment:
+-------------------------
+
+Abort.java                 ok
+Attrs.java                 ok
+AttrsPrintValue.java       ok
+Err.java                   cannot be ported at the moment
+Final.java                 ok
+Finalized.java             ok
+Initialized.java           ok
+InitThread.java            ok
+InitThreadFunneled.java    ok
+InitThreadMultiple.java    ok
+InitThreadSerialized.java  ok
+IsThrMain.java             ok
+Pcontrol.java              ok
+Procname.java              ok
+QueryThread.java           ok
+Wtime.java                 ok
+
+
+
+
+subdirectory group:
+-------------------
+
+It is not allowed to use "Group.java" for "group.c", because that
+would overwrite the original mpiJava class with the same name.
+Therefore I use GroupTest.java.
+
+Compare.java          ok
+Groupfree.java        ok
+GroupTest.java        ok
+Range.java            ok
+
+
+
+
+subdirectory info:
+------------------
+
+Create00.java         ok
+Delete20.java         ok
+Get30.java            ok
+GetValuelen40.java    ok
+Getnkeys50.java       ok
+InfoEnv60.java        ok
+Set10.java            ok
+
+
+
+
+subdirectory io:
+----------------
+
+FileStatusGetCount.java         ok
+
+
+
+
+subdirectory onesided:
+----------------------
+
+CAccumulate.java                ok
+CAccumulateAtomic.java          ok
+CCreate.java                    ok
+CCreateDisp.java                ok
+CCreateInfo.java                ok
+CCreateInfoHalf.java            ok
+CCreateNoFree.java              ok
+CCreateSize.java                ok
+CFenceAsserts.java              ok
+CFencePut1.java                 ok
+CFenceSimple.java               ok
+CGet.java                       ok
+CGetBig.java                    ok
+CLockIllegal.java               ok
+CPut.java                       ok
+CPutBig.java                    ok
+CWinAttr.java                   ok
+CWinErrhandler.java             ok
+
+
+
+
+subdirectory pt2pt:
+-------------------
+
+Allocmem.java         cannot be ported, because MPI_Alloc_mem
+                        and MPI_Free_mem cannot be ported
+Bsend.java            ok
+BsendFree.java        ok
+Buffer.java           cannot be ported at the moment
+Free.java             ok
+Getcount.java         ok (without "unsigned", which isn't available in Java)
+Improbe.java          ok
+Interf.java           ok
+Iprobe.java           ok
+Isend.java            ok
+Mprobe.java           ok
+MprobeMpich.java      ok
+Probe.java            ok
+Rsend.java            ok
+Rsend2.java           ok
+Send.java             ok
+Send2.java            ok
+Sendrecv.java         ok
+SendrecvRep.java      ok
+Seq.java              ok
+Ssend.java            ok
+Start.java            ok
+Startall.java         ok
+Test1.java            ok
+Test2.java            ok
+Test3.java            ok
+Testall.java          ok
+Testany.java          ok
+Testsome.java         ok
+Waitall.java          ok
+Waitany.java          ok
+Waitnull.java         ok
+Waitsome.java         ok
+Wildcard.java         ok
+
+
+
+
+subdirectory random:
+--------------------
+
+AllocMem.java                   cannot be ported, because MPI_Alloc_mem
+                                  and MPI_Free_mem cannot be ported
+AttrErrorCode.java              ok
+OmpiAffinityStr.java            cannot be ported at the moment
+OpCommutative.java              ok
+ReduceLocal.java                ok
+RingMmap.java                   cannot be ported, because I don't know
+                                  how to do "sysconf(_SC_PAGESIZE)",
+                                  etc. in Java
+Ticket_1944_BcastLoop.java      ok
+Ticket_1944_Test4.java          ok
+Ticket_1984_Littlehang.java     ok
+Ticket_2014_BasicSendRecv.java  ok
+
+
+
+
+subdirectory topology:
+----------------------
+
+Cart.java             ok
+Dimscreate.java       ok
+Distgraph1.java       ok
+Graph.java            ok
+Sub.java              ok
+Sub2.java             ok

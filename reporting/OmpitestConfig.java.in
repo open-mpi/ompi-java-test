@@ -1,0 +1,17 @@
+/* 
+ * Results from configure script that are needed in Java code.
+ */
+
+public class OmpitestConfig
+{
+  final static int OMPITEST_CHECKING_MPI_API_PARAMS = 
+	@OMPITEST_CHECKING_MPI_API_PARAMS@;
+  final static int OMPI_PARAM_CHECK = 
+	@OMPI_PARAM_CHECK@;
+  final static int OMPITEST_HAVE_MPI_THREADS = 
+	@OMPITEST_HAVE_MPI_THREADS@;
+  final static int HAVE_DIST_GRAPH = 
+	@HAVE_DIST_GRAPH@;
+  final static int OMPI_HAVE_MPI_EXT_AFFINITY =
+	@OMPI_HAVE_MPI_EXT_AFFINITY@;
+}

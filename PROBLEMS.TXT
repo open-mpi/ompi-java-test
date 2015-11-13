@@ -1,0 +1,227 @@
+
+> > I implemented it, but... Comm.createKeyVal() only returns the keyval.
+> > In JNI side I use the fn pointers in order to copy an free memory.
+> >
+> > Is it necessary implement the fn callbacks in Java?
+>
+> I don't know. At the moment they are used in my test programs.
+>
+>     MPI_Keyval_create(MPI.NULL_COPY_FN,MPI.NULL_DELETE_FN,&key,0);
+>
+> > Comm.freeKeyval(int keyval) can't modify the keyval with
+> > MPI_KEYVAL_INVALID. If it is necessary, we must implement a keyval as
+> > an object instead of int.
+>
+> Perhaps we should once more use an array with just one element for
+> "keyval".
+>
+>     MPI_Keyval_free(&key);
+>     if(key != MPI.KEYVAL_INVALID)
+>
+> Alternatively you can throw an MPIException with MPI.KEYVAL_INVALID.
+
+We could implement keyval as an object, but we think keyval are not
+very important. So it is not worth the effort.
+
+======================================================================
+
+>> Do we want to add a new type "String" and to do the necessary
+>> transformation to "char *" in the interface or shall I copy the
+>> string into a byte array, which we then use as a char array in
+>> C (chars in Java are 16 bits wide)? I would prefer a new datatype
+>> "String", because it seems to be more natural for Java programmers.
+
+Oscar:
+------
+
+> You can use the method String.getBytes() and the datatype BYTE or
+> CHAR. The method getBytes encodes the string into a byte array.
+
+
+Jeff:
+-----
+
+Is there any value for Java programmers to provide a datatype for the
+java string?
+
+I'm thinking "yes", but it's a little more complicated, unfortunately
+-- because it's a variable length item.  I.e., what should the "count"
+be -- the number of bytes in the string?  That would kinda defeat the
+point.
+
+Let's keep this point for future discussion (i.e., after basic
+functionality is done).  Perhaps this is one of those items that would
+be good for an upper-level/higher-abstraction library above MPI...
+
+
+======================================================================
+
+I need the following methods, constants, and/or types to finish my
+port of the following test programs.
+
+
+> collective/todo/Alltoallw.java
+> ------------------------------
+>
+> MPI_Alltoallw()
+> "extent = MPI.INT.getExtent();" delivers wrong result
+
+In MPI_Alltoallw the displacement of blocks is specified in bytes.
+Java doesn't deal with bytes. So, this method cannot be ported.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+collective/todo/BcastStruct.java
+collective/todo/IbcastStruct.java
+---------------------------------
+
+Don't know how to build the parameters for createStruct().
+
+MPI_Address()
+
+MPI.BOTTOM
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+collective/todo/IstructGatherv.java
+collective/todo/StructGatherv.java
+-----------------------------------
+
+Don't know how to build the parameters for createStruct().
+
+MPI.UB
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+collective_intercomm/todo/AlltoallwInter.java
+---------------------------------------------
+
+MPI_Alltoallw()
+
+In MPI_Alltoallw the displacement of blocks is specified in bytes.
+Java doesn't deal with bytes. So, this method cannot be ported.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+communicator/todo/SelfAtexit.java
+---------------------------------
+
+MPI_Keyval_create()
+
+MPI.NULL_COPY_FN
+
+I still have a problem with a method as parameter of a method.
+You told me, that I should do it in a similar way as it was
+done for Op. I looked at Op.java, UserFunction.java,
+User_function.java, Maxloc.java, and Minloc.java, but couldn't
+get a solution. Therefore I would be grateful, if somebody
+else can complete the porting process for SelfAtexit.java.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+datatype/todo/Bottom.java
+datatype/todo/Transpa.java
+--------------------------
+
+MPI.BOTTOM
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+datatype/todo/Zero5.java
+datatype/todo/Zero6.java
+----------------------------
+
+Don't know how to build the parameters for createStruct().
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+datatype/todo/Lbub.java
+datatype/todo/Lbub2.java
+datatype/todo/Strangest1.java
+datatype/todo/Zero3.java
+-----------------------------
+
+Don't know how to build the parameters for createStruct().
+
+MPI.LB
+MPI.UB
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+dynamic/todo/CommJoin.java
+--------------------------
+
+MPI_Comm_join()
+
+Oscar: You can't obtain the socket descriptor of a Java socket.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+environment/todo/Err.java
+-------------------------
+
+MPI_Comm_create_errhandler()
+MPI_Errhandler_free()
+
+MPI.ERRHANDLER_NULL
+
+I don't know if the above methods are necessary or if you can
+use "setErrhandler()" without them. I'm not sure, if I adapted
+the types for the parameters of the error handler correctly.
+
+C:    void myhandler1(MPI_Comm *comm,int *code,...)
+Java: void myhandler1(Comm comm[],int code[],...)
+
+Perhaps "Comm comm" is enough, so that we don't need
+"Comm comm[]".
+
+Same remarks as for SelfAtexit.java, so that I would be grateful,
+if somebody with more skills can complete the porting process.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+pt2pt/todo/Allocmem.java
+------------------------
+
+MPI_Alloc_mem()
+MPI_Free_mem()
+
+Oscar:
+MPI_Alloc_mem and MPI_Free_mem require Unsafe class, and we will
+not use it.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+pt2pt/todo/Buffer.java
+----------------------
+
+MPI_Comm_create_errhandler()
+MPI_Errhandler_free()
+MPI_Error_string( *code, buf, &result_len );
+
+Same remarks as for Err.java. "MPIException.getMessage()" cannot
+be used, because the error handler will be called with an error
+code and not with an exception handle.
+
+Same remarks as for SelfAtexit.java, so that I would be grateful,
+if somebody with more skills can complete the porting process.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+random/todo/OmpiAffinityStr.java
+--------------------------------
+
+OMPI_AFFINITY_STRING_MAX
+OMPI_AFFINITY_STRING_MAX
+OMPI_AFFINITY_STRING_MAX
+OMPI_AFFINITY_RSRC_STRING_FMT
+OMPI_AFFINITY_LAYOUT_FMT
+
+======================================================================
+
+One or more parameters are not available for the following functions
+in Java.
+
+MPI_Test_cancelled()
+
+======================================================================

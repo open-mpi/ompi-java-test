@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# Compile and run all onesided programs.
+#
+# As default this script runs first with two processes and second
+# with four processes on the local machine. You can add more options
+# to "mpiexec" on the command line, e.g.:
+#
+# make_onesided -np 6 -host sunpc1,linpc1,tyr
+#
+# to create six processes running on three machines.
+#
+#
+# File: make_onesided			Author: S. Gross
+#
+
+TWO_PROC="CAccumulate \
+CAccumulateAtomic \
+CCreate \
+CCreateDisp \
+CCreateInfo \
+CCreateInfoHalf \
+CCreateNoFree \
+CCreateSize \
+CFenceAsserts \
+CFencePut1 \
+CFenceSimple \
+CGet \
+CGetBig \
+CLockIllegal \
+CPut \
+CPutBig \
+CWinAttr \
+CWinErrhandler"
+
+NUM_PROC=$TWO_PROC
+
+# number of processes
+NP=8
+
+
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+echo "++++++++++++++++                        ++++++++++++++++"
+echo "++++++++++++++++ mpiexec -np 2 java ... ++++++++++++++++"
+echo "++++++++++++++++                        ++++++++++++++++"
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+for i in $TWO_PROC; do
+  echo " "
+  echo " "
+  echo " "
+  echo =========================== $i ===========================
+  mpijavac $i.java
+  mpiexec -np 2 java $i
+done
+
+
+echo " "
+echo " "
+echo " "
+echo " "
+echo " "
+echo " "
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+echo "++++"
+echo "++++ mpiexec -np $NP $* java ..."
+echo "++++"
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+for i in $NUM_PROC; do
+  echo " "
+  echo " "
+  echo " "
+  echo =========================== $i ===========================
+  mpijavac $i.java
+  mpiexec -np $NP $* java $i
+done
+
+rm *.class
