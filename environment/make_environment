@@ -14,11 +14,16 @@
 # File: make_environment		Author: S. Gross
 #
 
+Test_Classes="OmpitestError.java \
+OmpitestProgress.java \
+OmpitestConfig.java"
+
 TWO_PROC="Abort \
 Attrs \
-Err \
 Final \
 Finalized \
+GetLibVersion \
+GetVersion \
 InitThread \
 InitThreadFunneled \
 InitThreadMultiple \
@@ -46,7 +51,7 @@ for i in $TWO_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+  mpijavac $i.java $Test_Classes
   mpiexec -np 2 java $i
 done
 
@@ -67,7 +72,7 @@ for i in $NUM_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+#  mpijavac $i.java
   mpiexec -np $NP $* java $i
 done
 

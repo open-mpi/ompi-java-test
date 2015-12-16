@@ -14,14 +14,17 @@
 # File: make_communicator		Author: S. Gross
 #
 
+Test_Classes="OmpitestError.java \
+OmpitestProgress.java"
+
 TWO_PROC="Attr \
-AttrSetGet \
+CommCreateGroup \
 Commdup \
+CommDupWithInfo \
 Commfree \
 Compare \
-Intercomm \
-Mpisplit \
-SelfAtexit"
+InterComm \
+Mpisplit"
 
 NUM_PROC=$TWO_PROC
 
@@ -39,7 +42,7 @@ for i in $TWO_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+  mpijavac $i.java $Test_Classes
   mpiexec -np 2 java $i
 done
 
@@ -60,7 +63,7 @@ for i in $NUM_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+#  mpijavac $i.java
   mpiexec -np $NP $* java $i
 done
 

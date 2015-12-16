@@ -36,6 +36,7 @@ EXAMPLES = \
 	AllreduceInPlace.class \
 	Alltoall.class \
 	Alltoallv.class \
+	AllToAllW.class \
 	Barrier.class \
 	Bcast.class \
 	Exscan.class \
@@ -52,6 +53,7 @@ EXAMPLES = \
 	IallreduceInPlace.class \
 	Ialltoall.class \
 	Ialltoallv.class \
+	IAllToAllW.class \
 	Ibarrier.class \
 	Ibcast.class \
 	Iexscan.class \
@@ -127,6 +129,9 @@ Alltoall.class: Alltoall.java
 Alltoallv.class: Alltoallv.java
 	$(JAVAC) Alltoallv.java
 
+AllToAllW.class: AllToAllW.java
+	$(JAVAC) AllToAllW.java
+
 Barrier.class: Barrier.java
 	$(JAVAC) Barrier.java
 
@@ -174,6 +179,9 @@ Ialltoall.class: Ialltoall.java
 
 Ialltoallv.class: Ialltoallv.java
 	$(JAVAC) Ialltoallv.java
+
+IAllToAllW.class: IAllToAllW.java
+	$(JAVAC) IAllToAllW.java
 
 Ibarrier.class: Ibarrier.java
 	$(JAVAC) Ibarrier.java
