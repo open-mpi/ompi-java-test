@@ -13,7 +13,7 @@
 import java.nio.*;
 import mpi.*;
 import static mpi.MPI.slice;
-import reporting.*;
+//import reporting.*;
 
 public class CRPut
 {
@@ -60,6 +60,9 @@ public class CRPut
     //MPI_Free_mem(winArea);
     //MPI_Free_mem(putvals);
     MPI.Finalize();
-    System.out.println("Finished running.");
+    
+    if(rank == 0) {
+    	System.out.println("Finished running.");
+    }
   }
 }

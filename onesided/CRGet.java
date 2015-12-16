@@ -57,6 +57,8 @@ public class CRGet
     //MPI_Free_mem(winArea);
     //MPI_Free_mem(rcvArea);
     MPI.Finalize();
-    System.out.println("Done");
+    if(rank == 0) {
+    	System.out.println("Done");
+    }
   }
 }

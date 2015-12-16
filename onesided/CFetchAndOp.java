@@ -15,7 +15,7 @@ import java.nio.*;
 
 import mpi.*; 
 
-public class CFetchAndOP {
+public class CFetchAndOp {
 	private static int ITER = 100;
 	private static int[] errors = new int[1];
 	private static int[] allErrors = new int[1];

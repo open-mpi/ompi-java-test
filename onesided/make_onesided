@@ -14,6 +14,10 @@
 # File: make_onesided			Author: S. Gross
 #
 
+Test_Classes="OmpitestError.java \
+OmpitestProgress.java \
+OmpitestConfig.java"
+
 TWO_PROC="CAccumulate \
 CAccumulateAtomic \
 CCreate \
@@ -25,13 +29,21 @@ CCreateSize \
 CFenceAsserts \
 CFencePut1 \
 CFenceSimple \
+CFetchAndOp \
+CFlush \
 CGet \
 CGetBig \
 CLockIllegal \
 CPut \
 CPutBig \
+CReqops \
+CRGet \
+CRPut \
 CWinAttr \
-CWinErrhandler"
+CWinErrhandler \
+TestMpiRmaCompareAndSwap \
+WinAllocate \
+WinName"
 
 NUM_PROC=$TWO_PROC
 
@@ -49,7 +61,7 @@ for i in $TWO_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+  mpijavac $i.java $Test_Classes
   mpiexec -np 2 java $i
 done
 
@@ -70,7 +82,7 @@ for i in $NUM_PROC; do
   echo " "
   echo " "
   echo =========================== $i ===========================
-  mpijavac $i.java
+#  mpijavac $i.java $Test_Classes
   mpiexec -np $NP $* java $i
 done
 
