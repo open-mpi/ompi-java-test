@@ -53,7 +53,7 @@ public class CReqops
 			//buf = null; //cant initialize a window with a null buffer
 		}
 
-                if(nprocs > 4) {
+                if(nproc > 4) {
                         window = new Win(buf, nproc, 1, MPI.INFO_NULL, MPI.COMM_WORLD);
                 } else {
                         window = new Win(buf, 4, 1, MPI.INFO_NULL, MPI.COMM_WORLD);
