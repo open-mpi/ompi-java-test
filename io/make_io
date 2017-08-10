@@ -14,7 +14,10 @@
 # File: make_io				Author: S. Gross
 #
 
-TWO_PROC="FileStatusGetCount"
+TWO_PROC="FileStatusGetCount \
+FileAll \
+FileAtAll \
+FileAtomicity"
 
 NUM_PROC=$TWO_PROC
 
