@@ -33,7 +33,10 @@ IsThrMain \
 Pcontrol \
 Procname \
 QueryThread \
-Wtime"
+Wtime \
+WinErrhandler \
+CommErrhandler \
+FileErrhandler"
 
 NUM_PROC=$TWO_PROC
 
